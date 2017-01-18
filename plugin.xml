@@ -1,0 +1,20 @@
+<plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
+		id="cordova-plugin-onefile-error-logging"
+		version="0.0.1">
+	<name>Cordova Plugin File Picker</name>
+	<description>A cordova plugin for a file picker</description>
+	<license>Onefile Limited</license>
+	<keywords>file-picker,file,picker,filepicker</keywords>
+	<repo>https://github.com/ben3005/cordova-plugin-file-picker.git</repo>
+	<issue></issue>
+
+	<js-module src="www/filePicker.js" name="FilePicker">
+		<clobbers target="FilePicker" />
+	</js-module>
+
+	<platform name="windows">
+		<js-module src="src/windows/FilePicker.js" name="FilePickerProxy">
+			<merges target="" />
+		</js-module>
+	</platform>
+</plugin>
