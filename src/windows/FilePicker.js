@@ -43,7 +43,7 @@
 		var tempFolder = Windows.Storage.ApplicationData.current.temporaryFolder;
 		return file.copyAsync(tempFolder)
 			.then(function (newFile) {
-				return newFile.getBasicPropertiesAsync.then(function (basicProps) {
+				return newFile.getBasicPropertiesAsync().then(function (basicProps) {
 					return {
 						name: newFile.name,
 						fullPath: newFile.path,
