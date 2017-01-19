@@ -1,5 +1,5 @@
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
-		id="cordova-plugin-onefile-error-logging"
+		id="cordova-plugin-file-picker"
 		version="0.0.1">
 	<name>Cordova Plugin File Picker</name>
 	<description>A cordova plugin for a file picker</description>
