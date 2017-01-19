@@ -55,5 +55,5 @@
 			});
 	}
 
-	require("cordova/exec/proxy").add("FilePickerProxy", FilePickerProxy);
+	require("cordova/exec/proxy").add("FilePicker", FilePickerProxy);
 })();
