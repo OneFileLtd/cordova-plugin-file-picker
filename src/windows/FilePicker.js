@@ -44,13 +44,13 @@
 		return file.copyAsync(tempFolder)
 			.then(function (newFile) {
 				return newFile.getBasicPropertiesAsync().then(function (basicProps) {
-					return {
+					return [{
 						name: newFile.name,
 						fullPath: newFile.path,
 						localURL: 'ms-appdata:///temp/' + newFile.name,
 						type: newFile.contentType,
 						size: basicProps.size
-					};
+					}];
 				});
 			});
 	}
