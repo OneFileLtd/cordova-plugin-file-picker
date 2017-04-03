@@ -33,4 +33,13 @@
 		<framework src="CoreGraphics.framework" />
 		<framework src="MobileCoreServices.framework" />
 	</platform>
+
+	<platform name="android">
+		<config-file target="config.xml" parent="/*">
+			<feature name="FilePicker">
+				<param name="android-package" value="uk.co.onefile.nomadionic.filepicker.FilePicker"/>
+			</feature>
+		</config-file>
+		<source-file src="src/android/FilePicker.java" target-dir="src/uk/co/onefile/nomadionic/filepicker/" />
+	</platform>
 </plugin>
