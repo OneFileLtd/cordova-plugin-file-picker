@@ -64,7 +64,7 @@ public class FilePicker extends CordovaPlugin {
 	public void onPickPhoto(View view) {
 		PackageManager packageManager = this.cordova.getActivity().getPackageManager();
 		Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-
+		intent.setType("image/* video/*");
 		if (intent.resolveActivity(packageManager) != null) {
 			this.cordova.startActivityForResult((CordovaPlugin) this, intent, PICK_PHOTO_CODE);
 		}
