@@ -1,6 +1,7 @@
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
+				xmlns:android="http://schemas.android.com/apk/res/android"
 				id="cordova-plugin-file-picker"
-				version="0.0.1">
+				version="1.2.1">
 	<name>Cordova Plugin File Picker</name>
 	<description>A cordova plugin for a file picker</description>
 	<license>Onefile Limited</license>
@@ -40,6 +41,11 @@
 				<param name="android-package" value="uk.co.onefile.nomadionic.filepicker.FilePicker"/>
 			</feature>
 		</config-file>
+		<config-file target="AndroidManifest.xml" parent="/*">
+			<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+			<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+		</config-file>
+
 		<source-file src="src/android/FilePicker.java" target-dir="src/uk/co/onefile/nomadionic/filepicker/" />
 	</platform>
 </plugin>

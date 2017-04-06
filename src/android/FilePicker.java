@@ -22,9 +22,11 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.URLEncoder;
 
 import android.Manifest;
 import android.os.Build;
@@ -32,6 +34,7 @@ import android.os.Bundle;
 
 import android.content.Context;
 import android.content.ContextWrapper;
+import android.widget.Toast;
 
 public class FilePicker extends CordovaPlugin {
 	public final static int PICK_FROM_GALLERY_CODE = 1046;
@@ -42,12 +45,16 @@ public class FilePicker extends CordovaPlugin {
 	private static final String VIDEO_3GPP = "video/3gpp";
 	private static final String VIDEO_MP4 = "video/mp4";
 	private static final String IMAGE_JPEG = "image/jpeg";
+	private static boolean importedFile;
+	private static boolean permissionDenied;
 	public CallbackContext currentCallbackContext;
 	public CordovaWebView currentWebView;
 
 	@Override
 	public void initialize(CordovaInterface cordova, CordovaWebView webView) {
 		currentWebView = webView;
+		importedFile = false;
+		permissionDenied = false;
 		super.initialize(cordova, webView);
 	}
 
@@ -55,7 +62,7 @@ public class FilePicker extends CordovaPlugin {
 	public boolean execute(String action, JSONArray args, final CallbackContext callbackContext) throws JSONException {
 		if (action.equals("pickFile")) {
 			final JSONObject config = args.getJSONObject(0);
-			cordova.getThreadPool().execute(new Runnable() {
+			this.cordova.getThreadPool().execute(new Runnable() {
 				public void run() {
 					picker(config, callbackContext);
 				}
@@ -69,21 +76,22 @@ public class FilePicker extends CordovaPlugin {
 		currentCallbackContext = callbackContext;
 		try {
 			Log.i("FilePicker", config.toString(2));
-			requestPermission();
+			checkPermissions();
 		} catch (JSONException e) {
 			e.printStackTrace();
 			currentCallbackContext.error(e.getMessage());
 		}
 	}
 
-	private void requestPermission() {
-		boolean needReadExternalStoragePermission = !PermissionHelper.hasPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE);
+	private void checkPermissions() {
 		boolean needWriteExternalStoragePermission = !PermissionHelper.hasPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE);
+		boolean needReadExternalStoragePermission = !PermissionHelper.hasPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE);
+		permissionDenied = false;
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-			if (needReadExternalStoragePermission) {
-				PermissionHelper.requestPermission(this, REQUEST_READ_PERMISSION, Manifest.permission.READ_EXTERNAL_STORAGE);
-			} else if (needWriteExternalStoragePermission) {
+			if (needWriteExternalStoragePermission) {
 				PermissionHelper.requestPermission(this, REQUEST_WRITE_PERMISSION, Manifest.permission.WRITE_EXTERNAL_STORAGE);
+			} else if (needReadExternalStoragePermission) {
+				PermissionHelper.requestPermission(this, REQUEST_READ_PERMISSION, Manifest.permission.READ_EXTERNAL_STORAGE);
 			} else {
 				onPickPhoto(currentWebView.getView());
 			}
@@ -93,21 +101,30 @@ public class FilePicker extends CordovaPlugin {
 	}
 
 	public void onRequestPermissionResult(int requestCode, String[] permissions, int[] grantResults) throws JSONException {
-		Boolean permission = false;
-		for (int i = 0; i < grantResults.length; i++) {
-			permission &= ((grantResults[i] == PackageManager.PERMISSION_GRANTED));
+		switch (requestCode) {
+			case REQUEST_READ_PERMISSION: {
+				if (grantResults.length == 0 || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
+					permissionDenied = true;
+					currentCallbackContext.error("permission denied");
+				}
+				return;
+			}
+			case REQUEST_WRITE_PERMISSION: {
+
+				if (grantResults.length == 0 || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
+					permissionDenied = true;
+					currentCallbackContext.error("permission denied");
+				}
+				return;
+			}
 		}
-		if (permission) {
-			onPickPhoto(currentWebView.getView());
-		} else
-		{
-			currentCallbackContext.error("Permission denied, please check your permissions");
-		}
+		checkPermissions();
 	}
 
 	public void onPickPhoto(View view) {
 		PackageManager packageManager = this.cordova.getActivity().getPackageManager();
 		Intent intent;
+		importedFile = true;
 		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
 			intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
 			intent.setType("image/* video/* audio/*");
@@ -123,15 +140,17 @@ public class FilePicker extends CordovaPlugin {
 
 	@Override
 	public void onActivityResult(int requestCode, int resultCode, final Intent data) {
+		super.onActivityResult(requestCode, resultCode, data);
 		if(requestCode == PICK_FROM_GALLERY_CODE) {
 			if (resultCode == cordova.getActivity().RESULT_OK) {
 				if (data == null) {
 					currentCallbackContext.error("no data");
 					return;
 				}
-				cordova.getThreadPool().execute(new Runnable() {
+				this.cordova.getThreadPool().execute(new Runnable() {
 					public void run() {
 						Uri photoUri = data.getData();
+						Log.i("onActivityResult", "execute-inthread:" + photoUri.toString());
 						JSONArray result = new JSONArray();
 						JSONObject file;
 						file = createMediaFile(photoUri);
@@ -151,20 +170,20 @@ public class FilePicker extends CordovaPlugin {
 		}
 	}
 
-	@Override
-	public void onRestoreStateForActivityResult(Bundle state, CallbackContext callbackContext)
-	{
-	}
-
 	private JSONObject createMediaFile(Uri data) {
 		try {
 			if(data == null) {
 				return null;
 			}
-
-			File fp = new File(getPath(cordova.getActivity().getApplicationContext(), data));
-			if (fp.exists()) {
-			} else {
+			boolean needReadExternalStoragePermission = !PermissionHelper.hasPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE);
+			String filePath = getPath(this.cordova.getActivity().getApplicationContext(), data);
+			Log.i("createMediaFile", filePath);
+			File fp = new File(filePath);
+			if (!fp.canRead()) {
+				Log.i("createMediaFile", "file can not read!!!");
+			}
+			if (!fp.exists()) {
+				Log.i("createMediaFile", "file not found!!!");
 				return null;
 			}
 			JSONObject obj = new JSONObject();
@@ -208,7 +227,7 @@ public class FilePicker extends CordovaPlugin {
 				if (fp.getAbsoluteFile().toString().endsWith(".3gp") || fp.getAbsoluteFile().toString().endsWith(".3gpp")) {
 					obj.put("type", VIDEO_3GPP);
 				} else {
-					obj.put("type", FileHelper.getMimeType(Uri.fromFile(fp), cordova));
+					obj.put("type", FileHelper.getMimeType(Uri.fromFile(fp), this.cordova));
 				}
 
 				obj.put("lastModifiedDate", fp.lastModified());
@@ -239,7 +258,6 @@ public class FilePicker extends CordovaPlugin {
 	public static String getPath(final Context context, final Uri uri) {
 
 		final boolean isKitKat = Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT;
-
 		// DocumentProvider
 		if (isKitKat && DocumentsContract.isDocumentUri(context, uri)) {
 			if (isExternalStorageDocument(uri)) {
@@ -259,7 +277,6 @@ public class FilePicker extends CordovaPlugin {
 				final String id = DocumentsContract.getDocumentId(uri);
 				final Uri contentUri = ContentUris.withAppendedId(
 					Uri.parse("content://downloads/public_downloads"), Long.valueOf(id));
-
 				return getDataColumn(context, contentUri, null, null);
 			}
 			// MediaProvider
@@ -281,7 +298,6 @@ public class FilePicker extends CordovaPlugin {
 				final String[] selectionArgs = new String[] {
 					split[1]
 				};
-
 				return getDataColumn(context, contentUri, selection, selectionArgs);
 			}
 		}
@@ -289,9 +305,9 @@ public class FilePicker extends CordovaPlugin {
 		else if ("content".equalsIgnoreCase(uri.getScheme())) {
 
 			// Return the remote address
-			if (isGooglePhotosUri(uri))
+			if (isGooglePhotosUri(uri)) {
 				return uri.getLastPathSegment();
-
+			}
 			return getDataColumn(context, uri, null, null);
 		}
 		// File
@@ -337,12 +353,65 @@ public class FilePicker extends CordovaPlugin {
 			cursor = context.getContentResolver().query(uri, projection, selection, selectionArgs, null);
 			if (cursor != null && cursor.moveToFirst()) {
 				final int index = cursor.getColumnIndexOrThrow(column);
-				return cursor.getString(index);
+				String returnData = cursor.getString(index);
+				return returnData;
 			}
 		} finally {
-			if (cursor != null)
+			if (cursor != null) {
 				cursor.close();
+			}
 		}
+		return null;
+	}
+
+	@Override
+	public void onStart() {
+		super.onStart();
+	}
+
+	@Override
+	public void onStop() {
+		super.onStop();
+	}
+
+	@Override
+	public void onDestroy() {
+		super.onDestroy();
+	}
+
+	@Override
+	public void onPause(boolean multitasking) {
+		super.onPause(multitasking);
+	}
+
+	@Override
+	public void onResume(boolean multitasking) {
+		super.onResume(multitasking);
+		if(permissionDenied)
+			return;
+		if(!importedFile)
+			checkPermissions();
+	}
+
+	@Override
+	public void onRestoreStateForActivityResult(Bundle state, CallbackContext callbackContext) {
+		super.onRestoreStateForActivityResult(state, callbackContext);
+	}
+
+	@Override
+	public Bundle onSaveInstanceState() {
+		super.onSaveInstanceState();
+		return null;
+	}
+
+	@Override
+	public void onNewIntent(Intent intent) {
+		super.onNewIntent(intent);
+	}
+
+	@Override
+	public Object onMessage(String id, Object data) {
+		super.onMessage(id, data);
 		return null;
 	}
 }
