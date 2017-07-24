@@ -1,0 +1,19 @@
+{
+  "name": "cordova-plugin-file-picker",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ben3005/cordova-plugin-file-picker.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ben3005/cordova-plugin-file-picker/issues"
+  },
+  "homepage": "https://github.com/ben3005/cordova-plugin-file-picker#readme"
+}
